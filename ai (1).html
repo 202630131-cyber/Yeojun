@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나침반 - AI 개인맞춤 학습 플래너</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Pretendard Dynamic Font CDN -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            dark: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #f8fafc;
+            letter-spacing: -0.015em;
+        }
+        .card-shadow {
+            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+        @keyframes bounceShort {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-bounce-short {
+            animation: bounceShort 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+
+    <header class="bg-white/90 backdrop-blur sticky top-0 z-50 border-b border-slate-100">
+        <div class="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="goToStep(1)">
+                <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow-sm">
+                    <i class="fa-solid fa-compass text-base"></i>
+                </div>
+                <span class="text-lg font-bold text-slate-900 tracking-tight">나침반</span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                <span id="step1Dot" class="px-2.5 py-1 rounded-md bg-brand-50 text-brand-700">1. 과제/시간</span>
+                <i class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i>
+                <span id="step2Dot" class="px-2.5 py-1 rounded-md">2. 에너지</span>
+                <i class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i>
+                <span id="step3Dot" class="px-2.5 py-1 rounded-md">3. 맞춤 플랜</span>
+            </div>
+
+            <button onclick="resetApp()" class="text-xs text-slate-500 hover:text-brand-600 px-2.5 py-1.5 rounded-md hover:bg-slate-100 transition">
+                <i class="fa-solid fa-rotate-right mr-1"></i>리셋
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-6 flex-grow w-full">
+
+        <div class="w-full bg-slate-100 h-1 rounded-full mb-6 overflow-hidden">
+            <div id="progressBar" class="bg-brand-600 h-full w-1/3 transition-all duration-300"></div>
+        </div>
+
+        <section id="step1" class="space-y-6">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900">공부 과제 및 가능 시간 설정</h1>
+                <p class="text-xs text-slate-500 mt-0.5">과목별 분 단위 소요시간과 공부 가능한 시작/종료 시간을 지정해 주세요.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Task Input Form -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span class="font-bold text-sm text-slate-800">공부 과제 추가</span>
+                        <span id="totalTaskHours" class="text-xs font-bold text-brand-600">총 0분</span>
+                    </div>
+
+                    <div class="space-y-2">
+                        <input type="text" id="taskTitle" placeholder="과목명 또는 할 일 (예: 국어 숙제)" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500">
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-1">소요시간 (분)</label>
+                                <div class="flex gap-1">
+                                    <input type="number" id="taskMins" value="45" min="5" max="300" step="5" class="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500 text-center font-bold">
+                                    <span class="text-xs flex items-center text-slate-400">분</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-1">난이도 / 집중도</label>
+                                <select id="taskPriority" class="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500">
+                                    <option value="high">고난도 🔥 (수학/킬러문항)</option>
+                                    <option value="medium" selected>보통 📘 (개념학습)</option>
+                                    <option value="low">가벼움 ☕ (단어암기/숙제)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Quick Minute Selectors -->
+                        <div class="flex gap-1 pt-0.5">
+                            <button onclick="setTaskMins(15)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded">15분</button>
+                            <button onclick="setTaskMins(30)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded">30분</button>
+                            <button onclick="setTaskMins(45)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded">45분</button>
+                            <button onclick="setTaskMins(60)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded">1시간</button>
+                            <button onclick="setTaskMins(90)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded">1시간 30분</button>
+                        </div>
+
+                        <button onclick="addTask()" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold transition">
+                            + 과제 추가
+                        </button>
+                    </div>
+
+                    <div id="taskList" class="space-y-1.5 max-h-44 overflow-y-auto pt-1"></div>
+                </div>
+
+                <!-- Custom Time Range Selector -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <span class="font-bold text-sm text-slate-800">공부 가능 시간대 지정</span>
+                            <span id="selectedTimeHours" class="text-xs font-bold text-brand-600">총 0분 가능</span>
+                        </div>
+
+                        <!-- Custom Slot Add Form -->
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-2">
+                            <span class="text-[11px] font-bold text-slate-600 block">시간대 추가</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400">시작 시간</label>
+                                    <input type="time" id="newSlotStart" value="14:00" class="w-full px-2 py-1 text-xs border rounded bg-white font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400">종료 시간</label>
+                                    <input type="time" id="newSlotEnd" value="17:30" class="w-full px-2 py-1 text-xs border rounded bg-white font-medium">
+                                </div>
+                            </div>
+                            <button onclick="addCustomTimeSlot()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded transition">
+                                + 시간대 추가
+                            </button>
+                        </div>
+
+                        <!-- Existing Slot Checklist -->
+                        <div class="space-y-1.5 max-h-40 overflow-y-auto" id="timeSlotContainer"></div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+                        <span>💡 원하는 시간대만 자유롭게 체크/추가하세요.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="goToStep(2)" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5">
+                    <span>다음: 에너지 입력</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="step2" class="space-y-6 hidden">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900">오늘의 에너지 상태</h1>
+                <p class="text-xs text-slate-500 mt-0.5">에너지 상태에 맞춰 최적의 집중 시간 단위 및 과제 순서를 자동 조율합니다.</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 card-shadow space-y-4">
+                <label class="block text-xs font-bold text-slate-700">현재 컨디션 선택</label>
+                <div class="grid grid-cols-5 gap-2" id="conditionSelector">
+                    <button onclick="selectCondition('best', this)" class="condition-btn p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center gap-1 transition text-center">
+                        <span class="text-2xl">🔥</span>
+                        <span class="font-bold text-xs text-slate-700">최상</span>
+                        <span class="text-[9px] text-slate-400">몰입/어려운과제</span>
+                    </button>
+                    <button onclick="selectCondition('good', this)" class="condition-btn p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center gap-1 transition text-center">
+                        <span class="text-2xl">😊</span>
+                        <span class="font-bold text-xs text-slate-700">좋음</span>
+                        <span class="text-[9px] text-slate-400">안정적 진행</span>
+                    </button>
+                    <button onclick="selectCondition('normal', this)" class="condition-btn p-3 rounded-lg border-2 border-brand-500 bg-brand-50/40 flex flex-col items-center gap-1 transition text-center">
+                        <span class="text-2xl">😐</span>
+                        <span class="font-bold text-xs text-slate-700">보통</span>
+                        <span class="text-[9px] text-slate-400">기본 밸런스</span>
+                    </button>
+                    <button onclick="selectCondition('tired', this)" class="condition-btn p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center gap-1 transition text-center">
+                        <span class="text-2xl">🥱</span>
+                        <span class="font-bold text-xs text-slate-700">피곤</span>
+                        <span class="text-[9px] text-slate-400">쉬운과제/짧게</span>
+                    </button>
+                    <button onclick="selectCondition('exhausted', this)" class="condition-btn p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center gap-1 transition text-center">
+                        <span class="text-2xl">😴</span>
+                        <span class="font-bold text-xs text-slate-700">지침</span>
+                        <span class="text-[9px] text-slate-400">잦은휴식/분할</span>
+                    </button>
+                </div>
+
+                <!-- Live Strategy Guide Box -->
+                <div id="energyStrategyInfo" class="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1">
+                    <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-amber-500"></i>
+                        <span id="strategyTitle">보통 컨디션 맞춤 전략</span>
+                    </div>
+                    <p id="strategyDesc" class="text-slate-600 text-[11px] leading-relaxed">
+                        중요한 과제부터 차근차근 해결하며 45분 공부 후 10분 휴식을 취합니다.
+                    </p>
+                </div>
+
+                <div class="pt-2 space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">학습 방식</label>
+                        <select id="studyStyle" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="balanced">기본 밸런스형 (공부+휴식 균형)</option>
+                            <option value="pomodoro">포모도로 방식 (25분 공부 + 5분 휴식)</option>
+                            <option value="frontload">고난도 과제 선배치</option>
+                            <option value="lightstart">쉬운 과제로 워밍업 후 진행</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">특별 요청사항 (선택)</label>
+                        <input type="text" id="userNote" placeholder="예: 저녁 7시에 학원 수업이 있어요" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between pt-2">
+                <button onclick="goToStep(1)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">
+                    이전
+                </button>
+                <button onclick="generatePlanWithAI()" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>AI 맞춤 플랜 생성</span>
+                </button>
+            </div>
+        </section>
+
+        <section id="step3" class="space-y-5 hidden">
+            
+            <!-- Loading Box -->
+            <div id="aiLoading" class="hidden bg-white border border-slate-200 p-8 rounded-xl text-center max-w-sm mx-auto my-8 space-y-3">
+                <div class="inline-block text-brand-600 animate-spin">
+                    <i class="fa-solid fa-compass text-3xl"></i>
+                </div>
+                <p class="text-xs font-bold text-slate-800">에너지 상태 분석 및 최적 플랜 생성 중...</p>
+            </div>
+
+            <div id="planContent" class="space-y-4">
+                <!-- AI Advice Box -->
+                <div class="bg-slate-900 text-white rounded-xl p-4 shadow-md space-y-1.5">
+                    <div class="flex items-center justify-between text-[11px] text-slate-400">
+                        <span id="conditionTag" class="text-brand-400 font-bold"></span>
+                        <span id="plannerDate"></span>
+                    </div>
+                    <p id="aiAdviceText" class="text-xs text-slate-200 leading-relaxed font-normal"></p>
+                </div>
+
+                <!-- Completion Celebration Card (100% finished) -->
+                <div id="completionBanner" class="hidden bg-gradient-to-r from-teal-500 to-emerald-600 text-white p-5 rounded-xl shadow-lg border border-teal-400/30 text-center space-y-2.5 transition-all animate-bounce-short">
+                    <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-xl backdrop-blur-sm">
+                        🎉
+                    </div>
+                    <h2 class="text-base font-extrabold tracking-tight">오늘의 목표 완수!</h2>
+                    <p id="quoteText" class="text-xs font-medium text-emerald-50 leading-relaxed max-w-md mx-auto italic px-2">
+                        "오늘 하루도 정말 고생 많았어요! 자신과의 약속을 지켜낸 당신이 자랑스럽습니다. ✨"
+                    </p>
+                    <div class="pt-1 flex items-center justify-center gap-2">
+                        <button onclick="changeQuote()" class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold rounded-lg transition backdrop-blur-sm">
+                            <i class="fa-solid fa-arrows-rotate mr-1"></i>다른 응원 한마디
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="bg-white p-3 rounded-lg border border-slate-200/80">
+                        <span class="text-[10px] text-slate-400 block">목표 공부</span>
+                        <span id="summaryStudyHours" class="text-sm font-bold text-brand-600">0분</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg border border-slate-200/80">
+                        <span class="text-[10px] text-slate-400 block">총 휴식</span>
+                        <span id="summaryBreakHours" class="text-sm font-bold text-amber-600">0분</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg border border-slate-200/80">
+                        <span class="text-[10px] text-slate-400 block">달성률</span>
+                        <span id="progressPercent" class="text-sm font-bold text-slate-800">0%</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg border border-slate-200/80">
+                        <span class="text-[10px] text-slate-400 block">완료 과제</span>
+                        <span id="completedTasksCount" class="text-sm font-bold text-emerald-600">0/0</span>
+                    </div>
+                </div>
+
+                <!-- Main Schedule & Timer Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <!-- Schedule Timeline -->
+                    <div class="sm:col-span-2 bg-white p-4 rounded-xl border border-slate-200/80 card-shadow space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-xs text-slate-800">에너지 맞춤 타임테이블</span>
+                                <span id="zoneIndicatorBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-50 text-brand-700"></span>
+                            </div>
+                            <button onclick="copyScheduleText()" class="text-[11px] text-brand-600 font-bold hover:underline">
+                                <i class="fa-regular fa-copy mr-1"></i>복사
+                            </button>
+                        </div>
+                        <div id="timelineContainer" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Focus Timer & Quick Controls -->
+                    <div class="space-y-3">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow text-center space-y-3">
+                            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+                                <span>집중 타이머</span>
+                                <span id="timerStatus" class="text-brand-600">대기</span>
+                            </div>
+                            <div class="text-3xl font-black text-slate-800 tracking-tight" id="timerDisplay">25:00</div>
+                            <div class="flex gap-1.5">
+                                <button onclick="toggleTimer()" id="startTimerBtn" class="flex-1 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg transition">시작</button>
+                                <button onclick="resetTimer()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-lg transition">리셋</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-3 rounded-xl border border-slate-200/80 card-shadow space-y-1.5">
+                            <button onclick="goToStep(2)" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">
+                                에너지 상태 수정 후 재배치
+                            </button>
+                            <button onclick="resetToStep(1)" class="w-full py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs rounded-lg transition">
+                                새 과제 입력하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-100 py-4 text-center text-xs text-slate-400">
+        나침반 — AI 개인맞춤 학습 플래너
+    </footer>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-slate-900 text-white px-3.5 py-2 rounded-lg text-xs font-medium translate-y-16 opacity-0 transition-all duration-200 z-50">
+        <span id="toastMsg"></span>
+    </div>
+
+    <script>
+        /* State Variables */
+        let currentStep = 1;
+        let tasks = [
+            { id: 1, title: '수학 킬러 문항 5개', durationMins: 60, priority: 'high', completed: false },
+            { id: 2, title: '영어 단어 50개 암기', durationMins: 30, priority: 'low', completed: false },
+            { id: 3, title: '국어 숙제 및 비문학 풀이', durationMins: 45, priority: 'medium', completed: false }
+        ];
+
+        let availableTimeSlots = [
+            { id: 'slot1', startMins: 14 * 60, endMins: 18 * 60, selected: true }
+        ];
+
+        let currentCondition = 'normal'; // best, good, normal, tired, exhausted
+        let generatedPlan = [];
+        let timerInterval = null;
+        let timerSeconds = 25 * 60;
+        let isTimerRunning = false;
+
+        const encouragingQuotes = [
+            "\"오늘 하루도 정말 고생 많았어요! 목표를 완벽하게 이뤄낸 당신이 자랑스럽습니다. ✨\"",
+            "\"작은 성취들이 모여 커다란 꿈을 만듭니다. 오늘 한 걸음 더 앞으로 나아갔어요! 🚀\"",
+            "\"끝까지 해낸 자신을 꼭 칭찬해 주세요. 당신의 노력은 결코 배신하지 않습니다. 💙\"",
+            "\"오늘 흘린 땀방울이 머지않아 빛나는 결실로 찾아올 거예요. 편안한 휴식 취하세요! 🌿\"",
+            "\"불가능해 보였던 일도 당신의 꾸준함으로 완성되었습니다. 참 잘했어요! 👏\"",
+            "\"오늘의 성취감으로 내일도 멋지게 시작할 수 있을 거예요. 고생 많았습니다! 💪\""
+        ];
+        let currentQuoteIdx = 0;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderTimeSlots();
+            renderTaskList();
+            updateStepUI();
+            updateConditionGuide('normal');
+            
+            const today = new Date();
+            document.getElementById('plannerDate').innerText = 
+                `${today.getMonth() + 1}월 ${today.getDate()}일 (${['일','월','화','수','목','금','토'][today.getDay()]})`;
+        });
+
+        function formatDurationText(totalMins) {
+            const mins = Math.round(totalMins);
+            if (mins < 60) {
+                return `${mins}분`;
+            } else if (mins % 60 === 0) {
+                return `${mins / 60}시간`;
+            } else {
+                const h = Math.floor(mins / 60);
+                const m = mins % 60;
+                return `${h}시간 ${m}분`;
+            }
+        }
+
+        function minsToTimeStr(totalMins) {
+            const hrs = Math.floor(totalMins / 60) % 24;
+            const mins = Math.round(totalMins % 60);
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        }
+
+        function timeStrToMins(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        function setTaskMins(mins) {
+            document.getElementById('taskMins').value = mins;
+        }
+
+        function goToStep(step) {
+            currentStep = step;
+            document.getElementById('step1').classList.toggle('hidden', step !== 1);
+            document.getElementById('step2').classList.toggle('hidden', step !== 2);
+            document.getElementById('step3').classList.toggle('hidden', step !== 3);
+            updateStepUI();
+        }
+
+        function resetToStep(step) {
+            goToStep(step);
+        }
+
+        function updateStepUI() {
+            const pb = document.getElementById('progressBar');
+            if (currentStep === 1) pb.style.width = '33%';
+            else if (currentStep === 2) pb.style.width = '66%';
+            else pb.style.width = '100%';
+
+            ['step1Dot', 'step2Dot', 'step3Dot'].forEach((id, idx) => {
+                const el = document.getElementById(id);
+                if (idx + 1 === currentStep) {
+                    el.className = 'px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 font-bold';
+                } else {
+                    el.className = 'px-2.5 py-1 rounded-md text-slate-400';
+                }
+            });
+        }
+
+        function addTask() {
+            const titleInput = document.getElementById('taskTitle');
+            const minsInput = document.getElementById('taskMins');
+            const priorityInput = document.getElementById('taskPriority');
+
+            const title = titleInput.value.trim();
+            const mins = parseInt(minsInput.value, 10);
+
+            if (!title) {
+                showToast('과제 이름을 입력하세요.');
+                titleInput.focus();
+                return;
+            }
+            if (isNaN(mins) || mins <= 0) {
+                showToast('올바른 소요시간을 입력하세요.');
+                return;
+            }
+
+            tasks.push({
+                id: Date.now(),
+                title: title,
+                durationMins: mins,
+                priority: priorityInput.value,
+                completed: false
+            });
+
+            titleInput.value = '';
+            renderTaskList();
+            showToast('과제가 추가되었습니다.');
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            renderTaskList();
+        }
+
+        function renderTaskList() {
+            const container = document.getElementById('taskList');
+            container.innerHTML = '';
+            let totalMins = 0;
+
+            if (tasks.length === 0) {
+                container.innerHTML = `<p class="text-[11px] text-slate-400 text-center py-4">추가된 과제가 없습니다.</p>`;
+            } else {
+                tasks.forEach(task => {
+                    totalMins += task.durationMins;
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs border border-slate-100';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-1.5 overflow-hidden">
+                            <span class="font-bold ${task.priority === 'high' ? 'text-red-500' : task.priority === 'medium' ? 'text-blue-500' : 'text-slate-400'}">
+                                ${task.priority === 'high' ? '🔥' : task.priority === 'medium' ? '📘' : '☕'}
+                            </span>
+                            <span class="font-medium text-slate-800 truncate">${task.title}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-500">${formatDurationText(task.durationMins)}</span>
+                            <button onclick="deleteTask(${task.id})" class="text-slate-300 hover:text-red-500">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+            document.getElementById('totalTaskHours').innerText = `총 ${formatDurationText(totalMins)}`;
+        }
+
+        function addCustomTimeSlot() {
+            const startStr = document.getElementById('newSlotStart').value;
+            const endStr = document.getElementById('newSlotEnd').value;
+
+            const startMins = timeStrToMins(startStr);
+            const endMins = timeStrToMins(endStr);
+
+            if (endMins <= startMins) {
+                showToast('종료 시간이 시작 시간보다 빨라야 합니다.');
+                return;
+            }
+
+            availableTimeSlots.push({
+                id: 'slot_' + Date.now(),
+                startMins: startMins,
+                endMins: endMins,
+                selected: true
+            });
+
+            renderTimeSlots();
+            showToast('시간대가 추가되었습니다.');
+        }
+
+        function toggleSlot(id) {
+            const slot = availableTimeSlots.find(s => s.id === id);
+            if (slot) slot.selected = !slot.selected;
+            renderTimeSlots();
+        }
+
+        function deleteSlot(id) {
+            availableTimeSlots = availableTimeSlots.filter(s => s.id !== id);
+            renderTimeSlots();
+        }
+
+        function renderTimeSlots() {
+            const container = document.getElementById('timeSlotContainer');
+            container.innerHTML = '';
+            let totalAvailableMins = 0;
+
+            availableTimeSlots.forEach(slot => {
+                const durationMins = slot.endMins - slot.startMins;
+                if (slot.selected) totalAvailableMins += durationMins;
+
+                const item = document.createElement('div');
+                item.className = `flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition ${slot.selected ? 'bg-brand-50/50 border-brand-300' : 'bg-slate-50 border-slate-200 opacity-60'}`;
+                item.innerHTML = `
+                    <div class="flex items-center gap-2" onclick="toggleSlot('${slot.id}')">
+                        <input type="checkbox" ${slot.selected ? 'checked' : ''} class="accent-brand-600 rounded">
+                        <span class="font-bold text-slate-800">${minsToTimeStr(slot.startMins)} - ${minsToTimeStr(slot.endMins)}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] font-semibold text-brand-700">${formatDurationText(durationMins)}</span>
+                        <button onclick="deleteSlot('${slot.id}')" class="text-slate-300 hover:text-red-500">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+
+            document.getElementById('selectedTimeHours').innerText = `총 ${formatDurationText(totalAvailableMins)} 가능`;
+        }
+
+        function selectCondition(cond, btn) {
+            currentCondition = cond;
+            document.querySelectorAll('.condition-btn').forEach(b => {
+                b.className = 'condition-btn p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center gap-1 transition text-center';
+            });
+            btn.className = 'condition-btn p-3 rounded-lg border-2 border-brand-500 bg-brand-50/40 flex flex-col items-center gap-1 transition text-center';
+            
+            updateConditionGuide(cond);
+        }
+
+        function updateConditionGuide(cond) {
+            const titleEl = document.getElementById('strategyTitle');
+            const descEl = document.getElementById('strategyDesc');
+
+            if (cond === 'best') {
+                titleEl.innerText = '⚡ 최상 에너지: 최고 몰입 모드';
+                descEl.innerText = '몰입력이 뛰어난 상태입니다. 가장 어려운 고난도/수학 과제를 첫 시간대에 고밀도로 배치하고, 휴식 시간은 짧고 굵게 가집니다.';
+            } else if (cond === 'good') {
+                titleEl.innerText = '👍 좋은 에너지: 고효율 모드';
+                descEl.innerText = '중요도가 높은 과제를 우선 배치하고, 50분 공부 + 10분 휴식의 효율적인 흐름으로 진행합니다.';
+            } else if (cond === 'normal') {
+                titleEl.innerText = '😐 보통 에너지: 밸런스 모드';
+                descEl.innerText = '기본 밸런스 페이스를 유지하며 45분 공부 + 10분 휴식으로 과제를 균형 있게 배분합니다.';
+            } else if (cond === 'tired') {
+                titleEl.innerText = '🥱 피곤 에너지: 가벼운 시작 & 스몰스텝 모드';
+                descEl.innerText = '성취감을 빨리 느낄 수 있도록 쉬운 과제(암기/단어)부터 배치하고, 60분 이상 긴 과제는 25~30분 단위로 잘라서 배치합니다.';
+            } else if (cond === 'exhausted') {
+                titleEl.innerText = '😴 지침 에너지: 포모도로 리커버리 모드';
+                descEl.innerText = '20~25분 짧은 공부 후 10~15분 휴식을 자주 배치하여 뇌의 피로를 최소화합니다.';
+            }
+        }
+
+        async function generatePlanWithAI() {
+            goToStep(3);
+            
+            const loading = document.getElementById('aiLoading');
+            const content = document.getElementById('planContent');
+
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+
+            const style = document.getElementById('studyStyle').value;
+            const note = document.getElementById('userNote').value.trim();
+
+            let aiAdvice = "";
+
+            if (currentCondition === 'best') {
+                aiAdvice = "최상의 에너지입니다! 집중력이 최고조일 때 가장 높은 난이도의 과제부터 정복하세요.";
+            } else if (currentCondition === 'good') {
+                aiAdvice = "컨디션이 아주 좋습니다. 고난도 과제와 보통 과제를 순차적으로 깔끔하게 마무리해 보세요.";
+            } else if (currentCondition === 'tired') {
+                aiAdvice = "피곤할 때는 작은 과제부터 해내며 엔진을 거는 것이 원동력이 됩니다. 과제를 짧게 쪼개어 가볍게 시작하세요.";
+            } else if (currentCondition === 'exhausted') {
+                aiAdvice = "지친 상태에서는 무리하지 않는 것이 핵심입니다. 짧은 집중과 충분한 휴식으로 에너지 부담을 최소화하세요.";
+            } else {
+                aiAdvice = "일정한 페이스를 유지하며 계획한 시간대에 맞춰 차근차근 진행하세요.";
+            }
+
+            // Execute smart scheduling engine
+            buildEnergyAwareTimeline();
+
+            document.getElementById('aiAdviceText').innerText = aiAdvice;
+            
+            const condLabels = { best: '🔥 최상', good: '😊 좋음', normal: '😐 보통', tired: '🥱 피곤', exhausted: '😴 지침' };
+            document.getElementById('conditionTag').innerText = `에너지 상태: ${condLabels[currentCondition] || currentCondition}`;
+
+            setTimeout(() => {
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            }, 600);
+        }
+
+        function buildEnergyAwareTimeline() {
+            const selectedSlots = availableTimeSlots.filter(s => s.selected).sort((a, b) => a.startMins - b.startMins);
+            generatedPlan = [];
+
+            let processedTasks = [];
+
+            // Task Auto-split for Tired/Exhausted conditions
+            tasks.forEach(task => {
+                if ((currentCondition === 'tired' || currentCondition === 'exhausted') && task.durationMins > 40) {
+                    const chunkCount = Math.ceil(task.durationMins / 30);
+                    const chunkMins = Math.round(task.durationMins / chunkCount);
+                    for (let i = 1; i <= chunkCount; i++) {
+                        processedTasks.push({
+                            title: `${task.title} (${i}/${chunkCount}부)`,
+                            durationMins: chunkMins,
+                            priority: task.priority,
+                            originalId: task.id
+                        });
+                    }
+                } else {
+                    processedTasks.push({ ...task, originalId: task.id });
+                }
+            });
+
+            // Sorting based on Condition Strategy
+            if (currentCondition === 'best' || currentCondition === 'good') {
+                processedTasks.sort((a, b) => {
+                    const pOrder = { high: 1, medium: 2, low: 3 };
+                    return pOrder[a.priority] - pOrder[b.priority];
+                });
+            } else if (currentCondition === 'tired' || currentCondition === 'exhausted') {
+                processedTasks.sort((a, b) => {
+                    const pOrder = { low: 1, medium: 2, high: 3 };
+                    return pOrder[a.priority] - pOrder[b.priority] || a.durationMins - b.durationMins;
+                });
+            }
+
+            // Setting Max Block & Rest Parameters
+            let maxBlockMins = 50;
+            let breakMins = 10;
+            
+            if (currentCondition === 'best') {
+                maxBlockMins = 75;
+                breakMins = 5;
+            } else if (currentCondition === 'good') {
+                maxBlockMins = 60;
+                breakMins = 10;
+            } else if (currentCondition === 'normal') {
+                maxBlockMins = 45;
+                breakMins = 10;
+            } else if (currentCondition === 'tired') {
+                maxBlockMins = 30;
+                breakMins = 10;
+            } else if (currentCondition === 'exhausted') {
+                maxBlockMins = 25;
+                breakMins = 15;
+            }
+
+            const badgeEl = document.getElementById('zoneIndicatorBadge');
+            if (currentCondition === 'best') badgeEl.innerText = '⚡ 몰입 전용 구간 (고난도 우선)';
+            else if (currentCondition === 'tired' || currentCondition === 'exhausted') badgeEl.innerText = '☕ 회복형 짧은 구간 (부담 최소화)';
+            else badgeEl.innerText = '⚖️ 균형 배치 구간';
+
+            let taskIndex = 0;
+            let totalBreakMins = 0;
+            let totalStudyMins = 0;
+
+            selectedSlots.forEach(slot => {
+                let currentMins = slot.startMins;
+                let remainingSlotMins = slot.endMins - slot.startMins;
+
+                while (remainingSlotMins >= 10 && taskIndex < processedTasks.length) {
+                    const task = processedTasks[taskIndex];
+                    const minsToAssign = Math.min(task.durationMins, remainingSlotMins, maxBlockMins);
+
+                    const startStr = minsToTimeStr(currentMins);
+                    currentMins += minsToAssign;
+                    remainingSlotMins -= minsToAssign;
+                    totalStudyMins += minsToAssign;
+
+                    task.durationMins -= minsToAssign;
+
+                    let zoneTag = "📘 기본";
+                    if (task.priority === 'high') zoneTag = "⚡ 몰입";
+                    else if (task.priority === 'low') zoneTag = "☕ 가벼움";
+
+                    generatedPlan.push({
+                        type: 'study',
+                        timeStr: `${startStr} ~ ${minsToTimeStr(currentMins)}`,
+                        title: task.title,
+                        durationStr: formatDurationText(minsToAssign),
+                        priority: task.priority,
+                        zoneTag: zoneTag,
+                        completed: false
+                    });
+
+                    if (task.durationMins <= 0) {
+                        taskIndex++;
+                    }
+
+                    if (remainingSlotMins >= breakMins) {
+                        const breakStartStr = minsToTimeStr(currentMins);
+                        currentMins += breakMins;
+                        remainingSlotMins -= breakMins;
+                        totalBreakMins += breakMins;
+
+                        let restNote = "휴식 및 기지개";
+                        if (currentCondition === 'exhausted') restNote = "눈 감고 충전 / 수분 섭취";
+                        else if (currentCondition === 'best') restNote = "짧은 스트레칭";
+
+                        generatedPlan.push({
+                            type: 'break',
+                            timeStr: `${breakStartStr} ~ ${minsToTimeStr(currentMins)}`,
+                            title: restNote,
+                            durationStr: `${breakMins}분`,
+                            completed: false
+                        });
+                    }
+                }
+            });
+
+            document.getElementById('summaryStudyHours').innerText = formatDurationText(totalStudyMins);
+            document.getElementById('summaryBreakHours').innerText = `${totalBreakMins}분`;
+
+            renderTimelineUI();
+            updateProgress();
+        }
+
+        function renderTimelineUI() {
+            const container = document.getElementById('timelineContainer');
+            container.innerHTML = '';
+
+            if (generatedPlan.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">배정된 스케줄이 없습니다.</p>`;
+                return;
+            }
+
+            generatedPlan.forEach((item, idx) => {
+                const card = document.createElement('div');
+                if (item.type === 'study') {
+                    const tagBg = item.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : item.priority === 'medium' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-600 border-slate-200';
+                    
+                    card.className = `p-2.5 rounded-lg border text-xs flex items-center justify-between ${item.completed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-200 shadow-sm'}`;
+                    card.innerHTML = `
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <button onclick="togglePlanComplete(${idx})" class="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'}">
+                                <i class="fa-solid fa-check text-[9px]"></i>
+                            </button>
+                            <span class="font-bold text-brand-600 flex-shrink-0">${item.timeStr}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded border font-semibold flex-shrink-0 ${tagBg}">${item.zoneTag}</span>
+                            <span class="font-medium text-slate-800 truncate ${item.completed ? 'line-through text-slate-400' : ''}">${item.title}</span>
+                        </div>
+                        <span class="text-slate-400 text-[11px] font-semibold flex-shrink-0 ml-2">${item.durationStr}</span>
+                    `;
+                } else {
+                    card.className = `p-2 rounded-lg bg-amber-50/70 border border-amber-100 text-[11px] flex justify-between text-amber-800`;
+                    card.innerHTML = `
+                        <span>☕ <b>${item.timeStr}</b> — ${item.title}</span>
+                        <span class="font-bold">${item.durationStr}</span>
+                    `;
+                }
+                container.appendChild(card);
+            });
+        }
+
+        function togglePlanComplete(index) {
+            generatedPlan[index].completed = !generatedPlan[index].completed;
+            renderTimelineUI();
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const studyItems = generatedPlan.filter(i => i.type === 'study');
+            const completed = studyItems.filter(i => i.completed).length;
+            const total = studyItems.length;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+            document.getElementById('progressPercent').innerText = `${percent}%`;
+            document.getElementById('completedTasksCount').innerText = `${completed}/${total}`;
+
+            const banner = document.getElementById('completionBanner');
+            if (total > 0 && completed === total) {
+                if (banner.classList.contains('hidden')) {
+                    banner.classList.remove('hidden');
+                    changeQuote();
+                    showToast('🎉 축하합니다! 오늘의 모든 목표를 완수하셨습니다!');
+                }
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function changeQuote() {
+            currentQuoteIdx = (currentQuoteIdx + 1) % encouragingQuotes.length;
+            document.getElementById('quoteText').innerText = encouragingQuotes[currentQuoteIdx];
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('startTimerBtn');
+            const status = document.getElementById('timerStatus');
+
+            if (isTimerRunning) {
+                clearInterval(timerInterval);
+                isTimerRunning = false;
+                btn.innerText = '시작';
+                status.innerText = '일시정지';
+            } else {
+                isTimerRunning = true;
+                btn.innerText = '정지';
+                status.innerText = '집중 중';
+
+                timerInterval = setInterval(() => {
+                    if (timerSeconds > 0) {
+                        timerSeconds--;
+                        renderTimerDisplay();
+                    } else {
+                        clearInterval(timerInterval);
+                        isTimerRunning = false;
+                        showToast('집중 시간이 완료되었습니다!');
+                        resetTimer();
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            timerSeconds = 25 * 60;
+            renderTimerDisplay();
+            document.getElementById('startTimerBtn').innerText = '시작';
+            document.getElementById('timerStatus').innerText = '대기';
+        }
+
+        function renderTimerDisplay() {
+            const mins = Math.floor(timerSeconds / 60);
+            const secs = timerSeconds % 60;
+            document.getElementById('timerDisplay').innerText = 
+                `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function copyScheduleText() {
+            if (generatedPlan.length === 0) return;
+            let text = `[나침반 맞춤 학습 플랜]\n`;
+            generatedPlan.forEach(item => {
+                if (item.type === 'study') text += `${item.timeStr} | ${item.title} (${item.durationStr})\n`;
+            });
+            
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            showToast('스케줄이 복사되었습니다.');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-16', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-16', 'opacity-0');
+            }, 2500);
+        }
+
+        function resetApp() {
+            tasks = [];
+            currentStep = 1;
+            renderTaskList();
+            renderTimeSlots();
+            resetTimer();
+            goToStep(1);
+            showToast('초기화되었습니다.');
+        }
+    </script>
+</body>
+</html>
